@@ -1,118 +1,121 @@
 --[[
-    Kyvweer.lol Combined (UE + Kicia Spoofer + Workspace Configs)
-    Panel name: Kyvweer.lol
-    Auto-crea carpeta de configs en workspace
+    Kyvweer.gg Combined
+    - Panel name: Kyvweer.gg
+    - Incluye sistema de configs en workspace
+    - Incluye Spoofer estilo Kicia
+    - Carga el script principal (UE/Kyvweer)
 ]]
 
-if getgenv().KyvweerCombined and getgenv().KyvweerCombined.Unload then
-    pcall(getgenv().KyvweerCombined.Unload)
+if getgenv().KyvweerGG and getgenv().KyvweerGG.Unload then
+    pcall(getgenv().KyvweerGG.Unload)
 end
 
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
-local LocalPlayer = Players.LocalPlayer
+local Players           = game:GetService("Players")
+local HttpService       = game:GetService("HttpService")
+local RunService        = game:GetService("RunService")
+local UserInputService  = game:GetService("UserInputService")
+local LocalPlayer       = Players.LocalPlayer
 
 local K = {
     connections = {},
-    cleanups = {},
-    destroyed = false,
+    cleanups    = {},
+    destroyed   = false,
 }
-getgenv().KyvweerCombined = K
+getgenv().KyvweerGG = K
 
--- ====================== FOLDER DE CONFIGS EN WORKSPACE ======================
-local function ensureWorkspaceConfigFolder()
-    local folderName = "KyvweerConfigs"
-    local folder = workspace:FindFirstChild(folderName)
+-------------------------------------------------
+-- 1. CARPETA DE CONFIGS EN WORKSPACE
+-------------------------------------------------
+local function ensureConfigFolder()
+    local name = "KyvweerConfigs"
+    local folder = workspace:FindFirstChild(name)
     if not folder then
         folder = Instance.new("Folder")
-        folder.Name = folderName
+        folder.Name = name
         folder.Parent = workspace
     end
     return folder
 end
 
-local ConfigFolder = ensureWorkspaceConfigFolder()
+local ConfigFolder = ensureConfigFolder()
 
--- Helper para guardar/cargar configs en el Folder del workspace
-local ConfigSystem = {}
-function ConfigSystem.Save(name, data)
-    if type(name) ~= "string" or name == "" then return false, "nombre inválido" end
+local Config = {}
+function Config.Save(name, data)
+    if type(name) ~= "string" or name == "" then
+        return false, "nombre inválido"
+    end
     local ok, encoded = pcall(HttpService.JSONEncode, HttpService, data)
     if not ok then return false, "error encode" end
 
-    local existing = ConfigFolder:FindFirstChild(name)
-    if existing then existing:Destroy() end
+    local old = ConfigFolder:FindFirstChild(name)
+    if old then old:Destroy() end
 
-    local val = Instance.new("StringValue")
-    val.Name = name
-    val.Value = encoded
-    val.Parent = ConfigFolder
+    local sv = Instance.new("StringValue")
+    sv.Name  = name
+    sv.Value = encoded
+    sv.Parent = ConfigFolder
     return true
 end
 
-function ConfigSystem.Load(name)
-    local val = ConfigFolder:FindFirstChild(name)
-    if not val or not val:IsA("StringValue") then return nil, "no existe" end
-    local ok, decoded = pcall(HttpService.JSONDecode, HttpService, val.Value)
+function Config.Load(name)
+    local sv = ConfigFolder:FindFirstChild(name)
+    if not sv or not sv:IsA("StringValue") then
+        return nil, "no existe"
+    end
+    local ok, decoded = pcall(HttpService.JSONDecode, HttpService, sv.Value)
     if not ok then return nil, "error decode" end
     return decoded
 end
 
-function ConfigSystem.List()
-    local list = {}
+function Config.List()
+    local t = {}
     for _, v in ipairs(ConfigFolder:GetChildren()) do
         if v:IsA("StringValue") then
-            table.insert(list, v.Name)
+            table.insert(t, v.Name)
         end
     end
-    return list
+    return t
 end
 
-function ConfigSystem.Delete(name)
-    local val = ConfigFolder:FindFirstChild(name)
-    if val then val:Destroy() return true end
+function Config.Delete(name)
+    local sv = ConfigFolder:FindFirstChild(name)
+    if sv then
+        sv:Destroy()
+        return true
+    end
     return false
 end
 
-K.ConfigSystem = ConfigSystem
+K.Config = Config
 K.ConfigFolder = ConfigFolder
+getgenv().KyvweerConfig = Config
 
--- ====================== SPOFER ESTILO KICIA ======================
+-------------------------------------------------
+-- 2. SPOFER ESTILO KICIA
+-------------------------------------------------
 local Spoofer = {}
 Spoofer.__index = Spoofer
 
 function Spoofer.new()
-    local self = setmetatable({
-        enabled = false,
+    return setmetatable({
+        enabled     = false,
         connections = {},
-        original = {},
     }, Spoofer)
-    return self
 end
 
 function Spoofer:Arm()
     if self.enabled then return end
     self.enabled = true
 
-    -- Ejemplo de spoof básico de avatar / character (estilo kicia)
-    -- Puedes expandir esto con más propiedades
-    local function applySpoof(character)
-        if not character then return end
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            -- Aquí puedes agregar spoofs reales (nombre, description, etc)
-            -- Por seguridad solo dejamos la estructura
-        end
-    end
-
     local function onCharacter(char)
-        task.wait(0.3)
-        applySpoof(char)
+        if not char then return end
+        task.wait(0.25)
+        -- Aquí puedes poner spoofs reales (nombre, description, clothes, etc.)
+        -- Estructura lista para expandir
     end
 
     if LocalPlayer.Character then
@@ -132,37 +135,41 @@ end
 
 local AvatarSpoofer = Spoofer.new()
 K.AvatarSpoofer = AvatarSpoofer
+getgenv().KyvweerSpoofer = AvatarSpoofer
 
--- ====================== CARGAR EL SCRIPT PRINCIPAL (Kyvweer / UE) ======================
-local function loadKyvweer()
-    local source = game:HttpGet("https://raw.githubusercontent.com/Kyvoxz/Kyvweer.lol.gg/refs/heads/main/Kyvweer.lol.gg.lua")
+-------------------------------------------------
+-- 3. CARGAR SCRIPT PRINCIPAL (Kyvweer / UE)
+-------------------------------------------------
+local function loadMainScript()
+    local url = "https://raw.githubusercontent.com/Kyvoxz/Kyvweer.lol.gg/refs/heads/main/Kyvweer.lol.gg.lua"
+    local source = game:HttpGet(url)
     local fn, err = loadstring(source)
     if not fn then
-        warn("[Kyvweer Combined] Error al cargar script principal:", err)
+        warn("[Kyvweer.gg] Error al compilar script principal:", err)
         return false
     end
 
     local ok, result = pcall(fn)
     if not ok then
-        warn("[Kyvweer Combined] Error al ejecutar script principal:", result)
+        warn("[Kyvweer.gg] Error al ejecutar script principal:", result)
         return false
     end
     return true
 end
 
--- Ejecutar
 task.spawn(function()
-    local success = loadKyvweer()
+    local success = loadMainScript()
     if success then
-        -- Activar spofer automáticamente
         AvatarSpoofer:Arm()
-        print("[Kyvweer.lol] Cargado correctamente | Configs en workspace.KyvweerConfigs | Spofer activo")
+        print("[Kyvweer.gg] Cargado | Configs → workspace.KyvweerConfigs | Spofer activo")
     else
-        warn("[Kyvweer.lol] Falló la carga del script principal")
+        warn("[Kyvweer.gg] Falló la carga del script principal")
     end
 end)
 
--- ====================== UNLOAD ======================
+-------------------------------------------------
+-- 4. UNLOAD
+-------------------------------------------------
 function K.Unload()
     if K.destroyed then return end
     K.destroyed = true
@@ -172,16 +179,13 @@ function K.Unload()
     for _, c in ipairs(K.connections) do
         pcall(function() c:Disconnect() end)
     end
-
     for _, f in ipairs(K.cleanups) do
         pcall(f)
     end
 
-    if getgenv().KyvweerCombined == K then
-        getgenv().KyvweerCombined = nil
+    if getgenv().KyvweerGG == K then
+        getgenv().KyvweerGG = nil
     end
 end
 
--- Exponer helpers globales útiles
-getgenv().KyvweerConfig = ConfigSystem
-getgenv().KyvweerSpoofer = AvatarSpoofer
+print("[Kyvweer.gg] Combined listo")
